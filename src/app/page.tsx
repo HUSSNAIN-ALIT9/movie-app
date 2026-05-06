@@ -27,7 +27,9 @@ export default function Home() {
   useEffect(() => {
     if (user) {
       setFavLoading(true);
-      getFavouriteMovies().then(setFavourites).finally(() => setFavLoading(false));
+      getFavouriteMovies()
+        .then((favs) => setFavourites(favs as Movie[]))
+        .finally(() => setFavLoading(false));
     } else {
       setFavourites([]);
     }
@@ -75,16 +77,9 @@ export default function Home() {
 
   // Handle like button click
   const handleLike = async (movie: Movie) => {
-    if (!user) {
-      alert("Please login to add favourites.");
-      return;
-    }
-    try {
-      await addFavouriteMovie(movie);
-      setFavourites(prev => [...prev, movie]);
-    } catch (e) {
-      alert("Failed to add favourite.");
-    }
+    if (!user) return;
+    await addFavouriteMovie(movie);
+    setFavourites(prev => [...prev, movie]);
   };
 
   return (
