@@ -1,51 +1,109 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { getFavouriteMovies } from "@/services/favouritesService";
+import {
+  getFavouriteMovies,
+  removeFavouriteMovie,
+} from "@/services/favouritesService";
 
 export default function FavouritesPage() {
   const [movies, setMovies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ---------------- FETCH FAVOURITES ----------------
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
+      if (!user) {
+        setMovies([]);
+        setLoading(false);
+        return;
+      }
 
-      const favs = await getFavouriteMovies();
-      setMovies(favs);
+      try {
+        const favs = await getFavouriteMovies();
+        setMovies(favs);
+      } catch (error) {
+        console.error(error);
+      }
+
       setLoading(false);
     });
 
     return () => unsub();
   }, []);
 
+  // ----------------🔥 OPTIMISTIC REMOVE (FAST UI) ----------------
+  const handleRemove = async (movie: any) => {
+    // 1. INSTANT UI UPDATE (NO DELAY)
+    setMovies((prev) =>
+      prev.filter((m) => m.id !== movie.id)
+    );
+
+    try {
+      // 2. BACKGROUND FIREBASE UPDATE
+      await removeFavouriteMovie(movie);
+    } catch (error) {
+      console.error(error);
+
+      // ❗ rollback if error
+      setMovies((prev) => [...prev, movie]);
+    }
+  };
+
+  // ---------------- LOADING ----------------
   if (loading) {
-    return <div className="p-10 text-center">Loading...</div>;
+    return (
+      <div className="text-white p-6">Loading...</div>
+    );
   }
 
   return (
-    <div className="min-h-screen p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-      {movies.length === 0 ? (
-        <p>No favourites</p>
-      ) : (
-        movies.map((movie: any) => (
-          <div key={movie.id} className="bg-white shadow rounded-xl p-4">
-            <img
-              src={
-                movie.poster?.startsWith("http")
-                  ? movie.poster
-                  : `https://image.tmdb.org/t/p/w500${movie.poster}`
-              }
-              className="h-60 w-full object-cover rounded-lg"
-            />
+    <main className="p-6 bg-[#111218] min-h-screen">
 
-            <h2 className="text-xl font-bold mt-2">{movie.title}</h2>
-            <p>{movie.genres}</p>
-          </div>
-        ))
+      <h1 className="text-2xl font-bold text-white mb-6">
+        ❤️ Favourite Movies
+      </h1>
+
+      {movies.length === 0 ? (
+        <p className="text-white">No favourites</p>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+
+          {movies.map((movie) => (
+            <div
+              key={movie.id}
+              className="bg-[#181920] rounded-xl overflow-hidden flex flex-col transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+            >
+
+              {/* IMAGE */}
+              <img
+                src={movie.poster}
+                className="h-64 w-full object-cover transition-transform duration-300 hover:scale-110"
+              />
+
+              {/* CONTENT */}
+              <div className="p-3">
+
+                <h2 className="text-white font-semibold line-clamp-1">
+                  {movie.title}
+                </h2>
+
+                {/* REMOVE BUTTON */}
+                <button
+                  onClick={() => handleRemove(movie)}
+                  className="mt-3 w-full bg-red-600 hover:bg-red-700 transition-all py-2 text-white rounded-lg font-semibold"
+                >
+                  ❌ Remove Favourite
+                </button>
+
+              </div>
+            </div>
+          ))}
+
+        </div>
       )}
-    </div>
+    </main>
   );
 }

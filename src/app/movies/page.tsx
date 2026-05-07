@@ -97,9 +97,17 @@ export default function MoviesPage() {
                   [movie.id]: newState,
                 }));
 
+
+                // Sanitize movieData for Firebase (no undefined fields)
                 const movieData = {
-                  ...movie,
-                  poster: movie.poster_path,
+                  id: movie.id ? String(movie.id) : "",
+                  title: movie.title || "Untitled",
+                  genres: movie.genres || "",
+                  vote_average: movie.vote_average || 0,
+                  poster_path: movie.poster_path || "",
+                  poster: movie.poster_path
+                    ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+                    : "https://via.placeholder.com/800x400?text=No+Image",
                 };
 
                 if (newState) {

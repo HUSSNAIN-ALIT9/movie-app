@@ -1,9 +1,6 @@
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
-/**
- * ADD FAVOURITE
- */
 export async function addFavouriteMovie(movie: any) {
   const user = auth.currentUser;
   if (!user) return;
@@ -11,17 +8,14 @@ export async function addFavouriteMovie(movie: any) {
   const ref = doc(db, "favourites", user.uid);
   const snap = await getDoc(ref);
 
-  const key = movie.id || movie.title.toLowerCase();
+  const key = String(movie.id);
 
-  const safeMovie = {
-    id: key,
+  const newMovie = {
+    id: movie.id,
     title: movie.title,
-    genres: movie.genres || "",
-    rating: movie.vote_average || movie.rating || 0,
     poster: movie.poster_path
       ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-      : movie.poster ||
-        "https://via.placeholder.com/800x400?text=No+Image",
+      : movie.poster,
   };
 
   let movies: any = {};
@@ -30,14 +24,11 @@ export async function addFavouriteMovie(movie: any) {
     movies = snap.data().movies || {};
   }
 
-  movies[key] = safeMovie;
+  movies[key] = newMovie;
 
   await setDoc(ref, { movies });
 }
 
-/**
- * REMOVE FAVOURITE
- */
 export async function removeFavouriteMovie(movie: any) {
   const user = auth.currentUser;
   if (!user) return;
@@ -50,16 +41,11 @@ export async function removeFavouriteMovie(movie: any) {
   const data = snap.data();
   const movies = data.movies || {};
 
-  const key = movie.id || movie.title.toLowerCase();
-
-  delete movies[key];
+  delete movies[String(movie.id)];
 
   await setDoc(ref, { movies });
 }
 
-/**
- * GET ALL FAVOURITES
- */
 export async function getFavouriteMovies() {
   const user = auth.currentUser;
   if (!user) return [];
