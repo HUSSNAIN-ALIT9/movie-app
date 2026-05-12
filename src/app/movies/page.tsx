@@ -30,7 +30,7 @@ export default function MoviesPage() {
   const [processing, setProcessing] = useState<string | null>(null);
   const [userReady, setUserReady] = useState(false);
 
-  // AUTH
+  // ---------------- AUTH ----------------
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -40,24 +40,33 @@ export default function MoviesPage() {
 
       setUserReady(true);
 
-      const favs = await getFavouriteMovies();
+      try {
+        const favs = await getFavouriteMovies();
 
-      const map: any = {};
-      favs.forEach((m: any) => {
-        map[m.id] = true;
-      });
+        const map: any = {};
+        favs.forEach((m: any) => {
+          map[m.id] = true;
+        });
 
-      setLiked(map);
+        setLiked(map);
+      } catch (error) {
+        console.error("Favourite load error:", error);
+      }
     });
 
     return () => unsub();
-  }, []);
+  }, [router]);
 
-  // FETCH MOVIES
+  // ---------------- FETCH MOVIES ----------------
   useEffect(() => {
     const fetchMovies = async () => {
       try {
         const apiKey = process.env.NEXT_PUBLIC_TMDB_API_KEY;
+
+        if (!apiKey) {
+          console.error("Missing TMDB API KEY");
+          return;
+        }
 
         const url = query
           ? `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${query}`
@@ -66,18 +75,25 @@ export default function MoviesPage() {
         const res = await fetch(url);
         const data = await res.json();
 
-        setMovies(data.results || []);
+        if (!data || !Array.isArray(data.results)) {
+          setMovies([]);
+          return;
+        }
+
+        setMovies(data.results);
       } catch (err) {
-        console.error(err);
+        console.error("Fetch error:", err);
+        setMovies([]);
       }
     };
 
     fetchMovies();
   }, [query]);
 
+  // ---------------- LOADING STATE ----------------
   if (!userReady) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-white">
+      <div className="min-h-screen flex items-center justify-center text-white bg-[#111218]">
         Loading...
       </div>
     );
@@ -106,6 +122,7 @@ export default function MoviesPage() {
                     : "/no-image.png"
                 }
                 className="h-64 w-full object-cover"
+                alt={movie.title}
               />
 
               {/* CONTENT */}
@@ -121,14 +138,14 @@ export default function MoviesPage() {
                   ⭐ {movie.vote_average || "N/A"}
                 </p>
 
-                {/* DESCRIPTION */}
+                {/* OVERVIEW */}
                 <p className="text-sm text-gray-400 line-clamp-3">
                   {movie.overview
                     ? movie.overview
                     : "No description available for this movie."}
                 </p>
 
-                {/* LIKE BUTTON (IMPROVED LIKE HOME PAGE) */}
+                {/* BUTTON */}
                 <button
                   disabled={processing === movie.id}
                   className={`mt-3 py-2 rounded font-semibold transition-all duration-300 ${
@@ -147,7 +164,7 @@ export default function MoviesPage() {
                     }));
 
                     const movieData = {
-                      id: String(movie.id),
+                      id: movie.id,
                       title: movie.title,
                       genres: "",
                       vote_average: movie.vote_average || 0,
@@ -157,10 +174,14 @@ export default function MoviesPage() {
                         : "",
                     };
 
-                    if (newState) {
-                      await addFavouriteMovie(movieData);
-                    } else {
-                      await removeFavouriteMovie(movieData);
+                    try {
+                      if (newState) {
+                        await addFavouriteMovie(movieData);
+                      } else {
+                        await removeFavouriteMovie(movieData);
+                      }
+                    } catch (error) {
+                      console.error("Favourite error:", error);
                     }
 
                     setProcessing(null);
