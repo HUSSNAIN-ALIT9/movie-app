@@ -1,20 +1,29 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+
 import {
   getFavouriteMovies,
   removeFavouriteMovie,
 } from "@/services/favouritesService";
 
+type Movie = {
+  id: number;
+  title: string;
+  poster?: string;
+};
+
 export default function FavouritesPage() {
-  const [movies, setMovies] = useState<any[]>([]);
+  const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
 
   // ---------------- FETCH FAVOURITES ----------------
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
+
       if (!user) {
         setMovies([]);
         setLoading(false);
@@ -22,70 +31,92 @@ export default function FavouritesPage() {
       }
 
       try {
-        const favs = await getFavouriteMovies();
-        setMovies(favs);
+
+        const favs = (await getFavouriteMovies()) as Movie[];
+
+        setMovies(favs || []);
+
       } catch (error) {
         console.error(error);
+      } finally {
+        setLoading(false);
       }
 
-      setLoading(false);
     });
 
     return () => unsub();
   }, []);
 
-  // ----------------🔥 OPTIMISTIC REMOVE (FAST UI) ----------------
-  const handleRemove = async (movie: any) => {
-    // 1. INSTANT UI UPDATE (NO DELAY)
-    setMovies((prev) =>
-      prev.filter((m) => m.id !== movie.id)
-    );
+  // ---------------- REMOVE FAVOURITE ----------------
+  const handleRemove = async (movie: Movie) => {
 
     try {
-      // 2. BACKGROUND FIREBASE UPDATE
+
       await removeFavouriteMovie(movie);
+
+      setMovies((prev) =>
+        prev.filter((m) => m.id !== movie.id)
+      );
+
     } catch (error) {
       console.error(error);
-
-      // ❗ rollback if error
-      setMovies((prev) => [...prev, movie]);
     }
   };
 
   // ---------------- LOADING ----------------
   if (loading) {
     return (
-      <div className="text-white p-6">Loading...</div>
+      <div className="text-white p-6 bg-[#111218] min-h-screen">
+        Loading...
+      </div>
     );
   }
 
   return (
     <main className="p-6 bg-[#111218] min-h-screen">
 
-      <h1 className="text-2xl font-bold text-white mb-6">
+      {/* TITLE */}
+      <h1 className="text-3xl font-bold text-white mb-8">
         ❤️ Favourite Movies
       </h1>
 
+      {/* EMPTY STATE */}
       {movies.length === 0 ? (
-        <p className="text-white">No favourites</p>
+
+        <div className="flex items-center justify-center h-[60vh]">
+
+          <p className="text-gray-400 text-lg">
+            No favourite movies yet.
+          </p>
+
+        </div>
+
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
 
           {movies.map((movie) => (
+
             <div
-              key={movie.id}
-              className="bg-[#181920] rounded-xl overflow-hidden flex flex-col transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+              key={`${movie.id}-${movie.title}`}
+              className="bg-[#181920] rounded-xl overflow-hidden flex flex-col hover:scale-105 transition-transform duration-300"
             >
 
               {/* IMAGE */}
               <img
-                src={movie.poster}
-                className="h-64 w-full object-cover transition-transform duration-300 hover:scale-110"
+                src={
+                  movie.poster && movie.poster !== ""
+                    ? movie.poster
+                    : "/no-image.png"
+                }
+                className="h-72 w-full object-cover"
+                alt={movie.title}
               />
 
               {/* CONTENT */}
-              <div className="p-3">
+              <div className="p-4 flex flex-col gap-3">
 
+                {/* TITLE */}
                 <h2 className="text-white font-semibold line-clamp-1">
                   {movie.title}
                 </h2>
@@ -93,17 +124,22 @@ export default function FavouritesPage() {
                 {/* REMOVE BUTTON */}
                 <button
                   onClick={() => handleRemove(movie)}
-                  className="mt-3 w-full bg-red-600 hover:bg-red-700 transition-all py-2 text-white rounded-lg font-semibold"
+                  className="w-full py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-all"
                 >
                   ❌ Remove Favourite
                 </button>
 
               </div>
+
             </div>
+
           ))}
 
         </div>
+
       )}
+
     </main>
   );
 }
+
